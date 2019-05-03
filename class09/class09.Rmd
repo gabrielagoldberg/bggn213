@@ -1,0 +1,203 @@
+---
+title: "class09"
+author: "Gabriela Goldberg"
+date: "5/1/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Unsupervised Learning Analysis of Human Breast Cancer Cells
+
+# Preparing the data
+
+```{r}
+wisc.df <- read.csv("WisconsinCancer.csv")
+```
+
+How many observations are in this data frame?
+```{r}
+nrow(wisc.df)
+```
+
+How many of the observations have a malignant diagnosis?
+```{r}
+length(grep("M", wisc.df$diagnosis))
+```
+
+How many variables/features in the data are suffixed with _mean?
+```{r}
+wisc.features <- colnames(wisc.df)
+length(grep("_mean", wisc.features))
+```
+
+Examine your input data to ensure column names are set correctly. The id and diagnosis columns will not be used for most of the following steps (you can use the View() or head() functions here).
+```{r}
+head(wisc.df)
+```
+
+Next use as.matrix() to convert the other features (i.e. columns) of the data (in columns 3 through 32) to a matrix. Store this in a variable called wisc.data.
+```{r}
+wisc.data <- as.matrix(wisc.df[,3:32])
+```
+
+Set the row names of wisc.data
+```{r}
+row.names(wisc.data) <- wisc.df$id
+```
+
+Setup a separate new vector called diagnosis that contains the data from the diagnosis column of the original dataset.
+```{r}
+diagnosis <- wisc.df$diagnosis
+```
+
+# Principal Component Analysis
+
+It is important to check if the data need to be scaled before performing PCA. Recall two common reasons for scaling data include:
+>The input variables use different units of measurement.
+>The input variables have significantly different variances.
+
+Check the mean and standard deviation of the features (i.e. columns) of the wisc.data to determine if the data should be scaled. Use the colMeans() and apply() functions like you've done before.
+```{r}
+colMeans(wisc.data)
+
+apply(wisc.data,2,sd)
+```
+
+Execute PCA with the prcomp() function on the wisc.data, scaling if appropriate, and assign the output model to  wisc.pr.
+```{r}
+wisc.pr <- prcomp(wisc.data, scale. = TRUE)
+summary(wisc.pr)
+```
+
+Create a biplot of the wisc.pr using the biplot() function.
+```{r}
+biplot(wisc.pr)
+```
+
+Rownames are used as the plotting character for biplots like this one which can make trends rather hard to see. In fact, this plot is very poor. So lets generate our own scatter plot of each observation along principal components 1 and 2 (i.e. a plot of PC1 vs PC2 available as the first two columns of wisc.pr$x) and color the points by the diagnosis (available in the diagnosis vector you created earlier).
+
+```{r}
+plot(wisc.pr$x[,1:2], col = diagnosis, 
+     xlab = "PC1", ylab = "PC2")
+```
+
+Repeat for components 1 and 3
+```{r}
+plot(wisc.pr$x[,c(1,3)], col = diagnosis, 
+     xlab = "PC1", ylab = "PC3")
+```
+
+Calculate the variance of each principal component by squaring the sdev component of wisc.pr (i.e. wisc.pr$sdev^2). Save the result as an object called pr.var.
+```{r}
+pr.var <- wisc.pr$sdev^2
+head(pr.var)
+```
+
+Calculate the variance explained by each principal component by dividing by the total variance explained of all principal components. Assign this to a variable called pve and create a plot of variance explained for each principal component.
+```{r}
+pve <- pr.var / sum(pr.var)
+plot(pve, xlab = "Principal Component", 
+     ylab = "Proportion of Variance Explained", 
+     ylim = c(0, 1), type = "o")
+```
+
+Alternative scree plot of the same data, note data driven y-axis
+```{r}
+barplot(pve, ylab = "Precent of Variance Explained",
+     names.arg=paste0("PC",1:length(pve)), las=2, axes = FALSE)
+axis(2, at=pve, labels=round(pve,2)*100 )
+```
+
+```{r}
+#install.packages("factoextra")
+#install.packages("dplyr")
+library(dplyr)
+library(factoextra)
+library(RColorBrewer)
+fviz_eig(wisc.pr, addlabels = TRUE, barfill = brewer.pal(n = 10, name = "Set3"))
+```
+
+## Hierarchical Clustering
+
+As part of the preparation for hierarchical clustering, the distance between all pairs of observations are computed. Furthermore, there are different ways to link clusters together, with single, complete, and average being the most common linkage methods.
+
+Scale the wisc.data data and assign the result to data.scaled.
+```{r}
+data.scaled <- scale(wisc.data)
+```
+
+Calculate the (Euclidean) distances between all pairs of observations in the new scaled dataset and assign the result to  data.dist.
+```{r}
+data.dist <- dist(data.scaled)
+```
+
+Create a hierarchical clustering model using complete linkage. Manually specify the method argument to hclust() and assign the results to wisc.hclust.
+```{r}
+wisc.clust <- hclust(data.dist, method = "complete")
+plot(wisc.clust)
+abline(h = 19, col="red", lty=2)
+```
+
+This exercise will help you determine if, in this case, hierarchical clustering provides a promising new feature.
+
+Use cutree() to cut the tree so that it has 4 clusters. Assign the output to the variable wisc.hclust.clusters.
+```{r}
+wisc.hclust.clusters <- cutree(wisc.clust, k = 4)
+table(wisc.hclust.clusters, diagnosis)
+```
+
+## Combining Methods
+
+Let's see if PCA improves or degrades the performance of hierarchical clustering.
+
+Using the minimum number of principal components required to describe at least 90% of the variability in the data, create a hierarchical clustering model with the linkage method="ward.D2". We use Ward's criterion here because it is based on multidimensional variance like principal components analysis. Assign the results to wisc.pr.hclust.
+```{r}
+wisc.pr.hclust <- hclust(dist( wisc.pr$x[,1:7] ), method = "ward.D2")
+plot(wisc.pr.hclust)
+abline(h = 60, col = "red", lty = 2)
+```
+
+```{r}
+grps <- cutree(wisc.pr.hclust, k=2)
+table(grps, diagnosis)
+plot(wisc.pr$x[,1:2], col=grps)
+plot(wisc.pr$x[,1:2], col=diagnosis)
+```
+
+
+```{r}
+g <- as.factor(grps)
+levels(g)
+g <- relevel(g,2)
+levels(g)
+plot(wisc.pr$x[,1:2], col=g)
+```
+
+Let's make a fancy 3D plot
+```{r}
+#install.packages("rgl")
+#library(rgl)
+#plot3d(wisc.pr$x[,1:3], xlab="PC 1", ylab="PC 2", zlab="PC 3", cex=1.5, size=1, type="s", col=grps)
+```
+
+
+## Prediction
+
+We will use the predict() function that will take our PCA model from before and new cancer cell data and project that data onto our PCA space.
+
+```{r}
+#url <- "https://tinyurl.com/new-samples-CSV"
+new <- read.csv("https://tinyurl.com/new-samples-CSV")
+npc <- predict(wisc.pr, newdata=new)
+npc
+```
+
+```{r}
+plot(wisc.pr$x[,1:2], col=g)
+points(npc[,1], npc[,2], col="blue", pch=16, cex=3)
+text(npc[,1], npc[,2], c(1,2), col="white")
+```
+

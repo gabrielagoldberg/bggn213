@@ -1,0 +1,236 @@
+---
+title: "Untitled"
+author: "Gabriela Goldberg"
+date: "4/24/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## More on function writing!
+
+First we will revisit our function from last class.
+
+```{r}
+source("http://tinyurl.com/rescale-R")
+```
+
+Test the **rescale()** function
+
+```{r}
+rescale(1:10)
+```
+```{r}
+rescale( c(1:10, "string"))
+```
+
+Let's fix this with another line of code.
+
+```{r}
+rescale2( c(1:10, "string"))
+```
+Now the error will tell us what is wrong.
+
+## Function practice!
+
+Write a function to identify NA elements in two vectors.
+
+Start with a simple example input where I know what the answer should be.
+
+```{r}
+x <- c( 1, 2, NA, 3, NA)
+y <- c(NA, 3, NA, 3, 4)
+```
+
+```{r}
+is.na(x)
+```
+
+```{r}
+is.na(y)
+```
+
+I am looking for the positions where it is TRUE in both vectors...
+
+```{r}
+is.na(x) & is.na(y)
+```
+
+Take the sum to find how many TRUEs
+
+```{r}
+sum(is.na(x) & is.na(y))
+```
+
+This is my working snippet of code that I can use as the body of my first function!
+
+```{r}
+both_na <- function(x,y) {
+  sum(is.na(x) & is.na(y))
+}
+```
+
+TEST!!
+
+```{r}
+both_na(x, y)
+```
+
+```{r}
+both_na( c(NA, NA, NA, 5, 6, 7, 9, NA), c(NA, 5, 6, 7, NA, NA, NA))
+```
+
+Check to see if the lengths of our inputs are equal
+
+```{r}
+x <- c(NA, NA, NA)
+y <- c(a, NA, NA, NA, NA, NA)
+length(x) != length(y)
+```
+
+Function **both_na2()** will tell us to make the vectors the same length.
+
+```{r}
+both_na2(x, y)
+```
+
+Function **both_na3()** makes the code better and gives us more information.
+
+```{r}
+x <- c(NA, NA, NA, 1, 2, 3)
+y <- c(NA, 3, 4, 5, NA, NA)
+both_na3(x, y)
+```
+
+## Your turn! 
+
+Write a function **grade()** to determine an overall grade from a vector of student homework assignment scores dropping the lowest single alignment score.
+
+Student 1
+```{r}
+s1 <- c(100, 100, 100, 100, 100, 100, 100, 100, 90)
+```
+
+Student 2
+```{r}
+s2 <- c(100, NA, 90, 90, 90, 90, 97, 80)
+```
+
+Let's first find the minimum of each student's scores.
+
+```{r}
+min(s1)
+min(s2)
+
+```
+
+We can then add up all the scores and subtract them from the total and divide them by the length of the vector minus 1.
+
+```{r}
+(sum(s1) - min(s1)) / (length(s1) - 1)
+(sum(s2) - min(s2)) / (length(s2) - 1)
+```
+
+Let's write the function!
+
+```{r}
+grade <- function(x) {
+  (sum(x) - min(x)) / (length(x) - 1)
+}
+```
+
+Let's test it on student 1
+
+```{r}
+grade(s1)
+```
+
+Does it work on student 2?
+
+```{r}
+grade(s2)
+```
+
+Let's try to fix this with a condition statement...
+
+```{r}
+grade <- function(x) {
+  (sum(x, na.rm = TRUE) - min(x, na.rm = TRUE)) / (length(x) - 1)
+}
+```
+
+Does it work on student 2?
+
+```{r}
+grade(s2)
+```
+
+Great! Now let's try to do this on a bigger file!
+
+```{r}
+url <- "http://tinyurl.com/gradeinput"
+```
+
+```{r}
+classgrades <- read.csv(url, row.names = 1)
+```
+
+This csv file has 20 rows (students) and 5 columns (grades).
+
+```{r}
+grade(classgrades[1,])
+```
+
+```{r}
+finalgrades <- apply(classgrades, 1, grade)
+```
+
+```{r}
+sort(finalgrades, decreasing = TRUE)
+```
+
+## Now let's do a real-world example
+
+Find common genes in two data sets and return their associated data (from each data set)
+
+Start with a simple version of the problem
+```{r}
+df1 <- data.frame(IDs=c("gene1", "gene2", "gene3"),
+ exp=c(2,1,1),
+ stringsAsFactors=FALSE)
+df2 <- data.frame(IDs=c("gene2", "gene4", "gene3", "gene5"),
+ exp=c(-2, NA, 1, 2),
+ stringsAsFactors=FALSE)
+```
+
+simplify further to single vectors
+```{r}
+x <- df1$IDs
+y <- df2$IDs
+```
+
+find the intersection of both vectors
+```{r}
+intersect(x, y)
+```
+
+That function doesn't give us the option to give us all the information along with the gene.
+
+```{r}
+x
+y
+
+x %in% y
+x[x %in% y]
+```
+
+Let's bind these columns together
+
+```{r}
+gene_intersect <- function(x, y) {
+  cbind( x[x %in% y], y[y %in% x])
+}
+```
+
