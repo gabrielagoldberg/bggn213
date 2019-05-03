@@ -23,13 +23,13 @@ Test the **rescale()** function
 rescale(1:10)
 ```
 ```{r}
-rescale( c(1:10, "string"))
+#rescale( c(1:10, "string"))
 ```
 
 Let's fix this with another line of code.
 
 ```{r}
-rescale2( c(1:10, "string"))
+#rescale2( c(1:10, "string"))
 ```
 Now the error will tell us what is wrong.
 
@@ -86,14 +86,14 @@ Check to see if the lengths of our inputs are equal
 
 ```{r}
 x <- c(NA, NA, NA)
-y <- c(a, NA, NA, NA, NA, NA)
+y <- c(NA, NA, NA, NA, NA, NA)
 length(x) != length(y)
 ```
 
 Function **both_na2()** will tell us to make the vectors the same length.
 
 ```{r}
-both_na2(x, y)
+#both_na2(x, y)
 ```
 
 Function **both_na3()** makes the code better and gives us more information.
