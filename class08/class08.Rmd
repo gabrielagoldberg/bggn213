@@ -2,7 +2,7 @@
 title: "Class 08"
 author: "Gabriela Goldberg"
 date: "4/26/2019"
-output: html_document
+output: github_document
 ---
 
 ## Kmeans clustering
