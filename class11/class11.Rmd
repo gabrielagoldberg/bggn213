@@ -87,3 +87,79 @@ hsg_ligand <- atom.select(pdb, "ligand", value = TRUE)
 write.pdb(hsg_ligand, file = "1hsg_ligand.pdb")
 ```
 
+```{r}
+library(bio3d.view)
+```
+
+Let's view the 3D structure
+```{r}
+view(pdb, "overview", col = "sse")
+```
+
+##Section 6: Working with multiple PDB files
+
+Download some example PDB files
+```{r}
+ids <- c("1TND_B","1AGR_A","1TAG_A","1GG2_A","1KJY_A","4G5Q_A")
+files <- get.pdb(ids, split = TRUE)
+```
+
+Extract and align the chains we are interested in
+```{r}
+pdbs <- pdbaln(files, fit = TRUE)
+```
+
+Print to screen a summary of the 'pdbs' object
+```{r}
+pdbs
+```
+
+Access the first 5 rows, and 8 columns
+```{r}
+pdbs$ali[1:5, 1:8]
+
+```
+Associated residues numbers
+```{r}
+
+pdbs$resno[1:5, 1:8]
+
+```
+
+Calculate sequence identity
+```{r}
+seqidentity(pdbs)
+
+```
+
+Calculate RMSD
+```{r}
+rmsd(pdbs)
+```
+
+
+```{r}
+# Calculate RMSD
+rd <- rmsd(pdbs)
+# Clustering
+hc <- hclust(as.dist(rd))
+grps <- cutree(hc, k=3)
+# Plot results as dendrogram
+hclustplot(hc, k=3)
+```
+
+Principle Component Analysis
+
+```{r}
+# Perform PCA
+pc.xray <- pca(pdbs)
+# Plot our results summary (PCA score plot and scree-plot)
+plot(pc.xray)
+```
+
+```{r}
+# Visualize first principal component
+pc1 <- mktrj(pc.xray, pc=1, file="pc_1.pdb")
+
+```
+
