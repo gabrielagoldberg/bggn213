@@ -1,0 +1,89 @@
+---
+title: "Class 11"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Section 1: Introduction to the RCSB Protein Data Bank (PDB)
+
+We first downloaded a CSV file from the website and we will import it.
+```{r}
+pdb_data <- read.csv("Data Export Summary.csv", row.names = 1)
+```
+
+Determine the percentage of structures solved by X-Ray and Electron Microscopy.
+```{r}
+totalstructures <- sum(pdb_data$Total)
+xray_electron_sum <- (pdb_data[1,5] + pdb_data[3,5])
+percentxrayelectron <- (xray_electron_sum / totalstructures) * 100
+print(percentxrayelectron)
+```
+
+
+What percent of structures are protein?
+```{r}
+protein <- sum(pdb_data$Proteins)
+percentprotein <- (protein / totalstructures) * 100
+print(percentprotein)
+```
+
+##Section 2: Visualizing the HIV-1 protease structure
+All of this section was done in VMD.
+
+##Section3: Introduction to Bio3D in R
+Load the bio3D package
+```{r}
+library(bio3d)
+```
+
+```{r}
+pdb <- read.pdb("1hsg.pdb")
+pdb
+```
+
+Let's convert the three letter amino acid sequence to a one letter sequence using the aa321 function.
+```{r}
+aa321(pdb$seqres)
+```
+
+```{r}
+head(pdb$atom)
+```
+
+##Section 4: Atom selection
+
+Select all C-alpha atoms (return their indices)
+```{r}
+ca.inds <- atom.select(pdb, "calpha")
+ca.inds
+```
+
+Select residue 10
+```{r}
+inds <- atom.select(pdb, resno = 10)
+inds
+```
+
+Note that the attributes of the returned ca.inds from atom.select() include both atom and
+xyz components. These are numeric vectors that can be used as indices to access the
+corresponding atom and xyz components of the input PDB structure object.
+
+```{r}
+head(pdb$atom[inds$atom, ])
+```
+
+Select protein only and write out a new pdb file (hsg_protein)
+```{r}
+hsg_protein <- atom.select(pdb, "protein", value = TRUE)
+write.pdb(hsg_protein, file = "1hsg_protein.pdb")
+```
+
+Select ligand/drug and write out a new pdb file (hsg_ligand)
+```{r}
+hsg_ligand <- atom.select(pdb, "ligand", value = TRUE)
+write.pdb(hsg_ligand, file = "1hsg_ligand.pdb")
+```
+
