@@ -1,0 +1,246 @@
+---
+title: "Class14"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Genome Informatics II
+
+```{r}
+library(BiocManager)
+library(DESeq2)
+```
+
+
+# Import countData and colData
+
+```{r}
+counts <- read.csv("data/airway_scaledcounts.csv", stringsAsFactors = FALSE)
+metadata <-  read.csv("data/airway_metadata.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+head(counts)
+```
+
+How many genes are we working with?
+```{r}
+nrow(counts)
+```
+
+```{r}
+head(metadata)
+```
+
+Are the column names in 'counts' exactly the same as the id column in metadata?
+```{r}
+colnames(counts)
+```
+```{r}
+metadata$id
+```
+```{r}
+all(colnames(counts)[-1]  == metadata$id)
+```
+
+# Toy Differential Gene Expression (Just for Learning Purposes)
+
+Let's calculate the mean counts per gene across the control samples.
+```{r}
+control <- metadata[metadata$dex =="control",]
+control.mean <- rowSums( counts[ ,control$id] )/ ncol(control)
+names(control.mean) <- counts$ensgene
+head(control.mean)
+```
+
+Let's do the same thing for the treated samples.
+```{r}
+treated <- metadata[metadata$dex =="treated",]
+treated.mean <- rowSums( counts[ ,treated$id] )/ ncol(treated)
+names(treated.mean) <- counts$ensgene
+head(treated.mean)
+```
+
+Now we can put them together in a dataframe with control and treatment as their own columns.
+```{r}
+meancounts <- data.frame(control.mean, treated.mean)
+```
+
+Let's plot this with 'treated' on the y-axis and 'control' on the x-axis.
+```{r}
+plot(meancounts)
+```
+
+We can't see all of the genes on this plot, so let's try to plot this logged on both axes.
+```{r}
+plot(meancounts, log = "xy", pch = 20, col = rainbow(10), 
+     xlab = "Log Control Mean", ylab = "Log Treated Mean")
+```
+
+We can find candidate differentially expressed genes by looking for genes with a large change between control and dex-treated samples. We usually look at the log2 of the fold change, because this has better mathematical properties.
+
+```{r}
+meancounts$log2fc <- log2(meancounts$treated.mean / meancounts$control.mean)
+head(meancounts)
+```
+
+NaN means "not a number" and -Inf means "negative infinity". These happen when you divide by 0 or 0/0. We need to remove these values.
+```{r}
+zero.vals <- which(meancounts[,1:2]==0, arr.ind=TRUE)
+#arr.ind returns an array if the initial input is an array (instead of a vector)
+to.rm <- unique(zero.vals[,1])
+#unique function takes any redundant TRUEs (both columns are TRUE) and makes it one.
+mycounts <- meancounts[-to.rm,]
+head(mycounts)
+```
+
+A common threshold used for calling something differentially expressed is a log2(FoldChange) of greater than 2 or less than -2. Let’s filter the dataset both ways to see how many genes are up or down-regulated.
+```{r}
+up.reg <- which(mycounts$log2fc > 2)
+length(up.reg)
+down.reg <- which(mycounts$log2fc < -2)
+length(down.reg)
+```
+
+
+# Adding Annotation Data
+
+Data from ENSEMBLE.
+```{r}
+anno <- read.csv("data/annotables_grch38.csv")
+head(anno)
+```
+
+Let's merge the annotation file to the data file with our gene counts.
+```{r}
+merge(mycounts, anno, by.x = "row.names", by.y = "ensgene")
+```
+
+In cases where you don’t have a preferred annotation file at hand you can use other Bioconductor packages for annotation.
+
+Bioconductor’s annotation packages help with mapping various ID schemes to each other. Here we load the AnnotationDbi package and the annotation package org.Hs.eg.db.
+
+```{r}
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+```
+
+This is the organism annotation package (“org”) for Homo sapiens (“Hs”), organized as an AnnotationDbi database package (“db”), using Entrez Gene IDs (“eg”) as primary key. To get a list of all available key types, use:
+
+```{r}
+columns(org.Hs.eg.db)
+```
+
+We can use the mapIds() function to add individual columns to our results table.
+```{r}
+mycounts$symbol <- mapIds(org.Hs.eg.db,
+                     keys=row.names(mycounts), #Our genenames
+                     keytype="ENSEMBL",        #The format of our genenames
+                     column="SYMBOL",         #The new format we want to add
+                     multiVals="first")
+head(mycounts)
+```
+
+Now we can add the Entrez ID and UniProt accession as new columns to our results dataframe.
+```{r}
+mycounts$entrez <- mapIds(org.Hs.eg.db,
+                     keys=row.names(mycounts), #Our genenames
+                     keytype="ENSEMBL",        #The format of our genenames
+                     column="ENTREZID",         #The new format we want to add
+                     multiVals="first")
+```
+
+```{r}
+mycounts$uniprot <- mapIds(org.Hs.eg.db,
+                     keys=row.names(mycounts), #Our genenames
+                     keytype="ENSEMBL",        #The format of our genenames
+                     column="UNIPROT",         #The new format we want to add
+                     multiVals="first")
+```
+
+```{r}
+head(mycounts)
+```
+
+# DESeq2 Analysis
+DESeq2 is an R package for analyzing count-based NGS data like RNA-seq. 
+
+```{r}
+library(DESeq2)
+citation("DESeq2")
+```
+
+We will use the DESeqDataSetFromMatrix() function to build the required DESeqDataSet object and call it dds, short for our DESeqDataSet.
+```{r}
+dds <- DESeqDataSetFromMatrix(countData=counts, 
+                              colData=metadata, 
+                              design=~dex, 
+                              tidy=TRUE)
+dds
+```
+
+```{r}
+dds <- DESeq(dds)
+```
+
+```{r}
+res <- results(dds)
+as.data.frame(res)
+```
+
+```{r}
+summary(res)
+```
+
+We can adjust the p-value:
+```{r}
+res05 <- results(dds, alpha=0.05)
+summary(res05)
+```
+
+Let’s make another commonly produced visualization from this data, namely so-called Volcano plots. These summary figures are frequently used to highlight the proportion of genes that are both significantly regulated and display a high fold change.
+A volcano plot shows the log fold change on the X-axis, and the −log10 of the p-value on the Y-axis (the more significant the p-value, the larger the −log10 of that value will be)
+```{r}
+plot( res$log2FoldChange,  -log(res$padj) )
+```
+
+Let's make this volcano plot with colors and look nicer.
+
+```{r}
+mycols <- rep("gray", nrow(res))
+mycols[abs(res$log2FoldChange) > 2] <- "red"
+mycols[res$padj < 0.05 & abs(res$log2FoldChange) > 2] <- "blue"
+
+plot( res$log2FoldChange,  -log(res$padj), 
+      ylab = "-Log(p-value)", xlab = "Log2(Fold Change)",
+      col = mycols, pch = 20)
+
+abline(v=c(-2,2), col="darkgray", lty=2)
+abline(h=-log(0.05), col="darkgray", lty=2)
+```
+
+Let's make a better looking plot using a package called "EnhancesVolcano"
+```{r}
+library(EnhancedVolcano)
+```
+
+```{r}
+x <- as.data.frame(res)
+x$symbol <- mapIds(org.Hs.eg.db, 
+                   keys=row.names(x),
+                   keytype="ENSEMBL",
+                   column="SYMBOL",
+                   multiVals="first")
+```
+
+
+```{r}
+EnhancedVolcano(x,
+    lab = x$symbol,
+    x = 'log2FoldChange',
+    y = 'pvalue')
+```
+
