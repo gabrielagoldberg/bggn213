@@ -1,0 +1,168 @@
+---
+title: "Class 18"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Investigating Cancer Genomics Datasets
+
+# The GenomicDataCommons R Package
+
+The workflow will be:
+
+Install packages if not already installed
+Load libraries
+Identify and download somatic variants for a representative TCGA dataset, in this case pancreatic adenocarcinoma.
+Use maftools to provide rich summaries of the data.
+```{r}
+library(GenomicDataCommons)
+library(TCGAbiolinks)
+library(maftools)
+```
+
+Let's check the status of 'GenomicDataCommons' or GDC.
+```{r}
+status()
+```
+
+# Querying the GDC from R
+
+We will typically start our interaction with the GDC by searching the resource to find data that we are interested in investigating further. In GDC speak this is called “Querying GDC metadata”. Metadata here refers to the extra descriptive information associated with the actual patient data (i.e. ‘cases’) in the GDC.
+
+The are four main sets of metadata that we can query, namely projects(), cases(), files(), and  annotations(). We will start with projects()
+
+```{r}
+projects <- getGDCprojects()
+```
+
+If you use the View(projects) function call you can see all the project names (such as Neuroblastoma, Pancreatic Adenocarcinoma, etc.) along with their project IDs (such as TARGET-NBL, TCGA-PAAD, etc.) and associated information.
+
+```{r}
+head(projects)
+```
+
+Moving onto cases() we can use an example from the package associated publication to answer our first from question above (i.e. find the number of cases/patients across different projects within the GDC):
+```{r}
+cases_by_project <- cases() %>%
+  facet("project.project_id") %>%
+  aggregations()
+head(cases_by_project$project.project_id)
+```
+
+Note that the facet() and aggregations() functions here are from the GenomicDataCommons package and act to group all cases by the project id and then count them up.
+
+Write the R code to make a barplot of the cases per project. Lets plot this data with a log scale for the y axis (log="y"), rotated axis labels (las=2) and color the bar coresponding to the TCGA-PAAD project.
+```{r}
+x <- cases_by_project$project.project_id
+
+# Make a custom color vector for our plot
+colvec <- rep("lightblue", nrow(x))
+colvec[x$key == "TCGA-PAAD"] <- "red"
+
+# Plot with 'log' for y axis and rotate labels with 'las'
+par(mar = c(9, 4, 2, 2))  
+barplot(x$doc_count, names.arg=x$key, log="y", col=colvec, las=2)
+```
+
+Lets explore some other functions from the related TCGAbiolinks package.
+
+We can use the getSampleFilesSummary() function to determine for a given project how many cases and what type of data we have available for each case:
+
+```{r}
+samp <- getSampleFilesSummary("TCGA-PAAD")
+```
+
+```{r}
+head(samp)
+```
+
+Now we can use GDCquery() function to focus in on a particular data type that we are interested in. For example, to answer our second question from above - namely ‘find all gene expression data files for all pancreatic cancer patients’:
+
+```{r}
+query <- GDCquery(project = "TCGA-PAAD",
+         data.category = "Transcriptome Profiling",
+         data.type = "Gene Expression Quantification")
+
+ans <- getResults(query)
+```
+
+How to get a list of the 'data.category' argument for each project:
+```{r}
+data.category <- TCGAbiolinks:::getProjectSummary("TCGA-PAAD")
+data.category$data_categories
+```
+
+```{r}
+head(ans)
+nrow(ans)
+```
+
+## Designing a personalized cancer vaccine
+
+# Protein sequences from healthy and tumor tissue
+```{r}
+library(bio3d)
+```
+
+Read in the fasta sequence files
+```{r}
+seq <- read.fasta("lecture18_sequences.fa")
+seq
+```
+
+```{r}
+mismatches <- which(seq$ali[1,] != seq$ali[2,])
+```
+
+Or... use a function in bio3d
+```{r}
+conserv(seq, method = "identity")
+```
+
+There are a lot of mismatches at the end. We don't want the gaps.
+```{r}
+gaps <- gap.inspect(seq)
+gaps <- gaps$t.inds
+```
+
+We can subtract the gaps from the mismatches
+```{r}
+tumor.spec <- mismatches[!mismatches %in% gaps]
+```
+
+Let's see the mutation sites
+```{r}
+ids <- paste(seq$ali[1,tumor.spec], tumor.spec, seq$ali[2,tumor.spec], sep = "")
+ids
+```
+
+
+Find 9-mers with mismatches.
+```{r}
+start.ind <- tumor.spec - 8
+end.ind <- tumor.spec + 8
+  
+tumor.seq <- matrix("-", nrow=length(ids), ncol=17)
+rownames(tumor.seq) <- ids
+
+for( i in 1:length(tumor.spec) ) {
+  tumor.seq[i,] <- seq$ali[2,start.ind[i]:end.ind[i]]
+}
+
+tumor.seq
+```
+
+Blank out the empty sections
+```{r}
+tumor.seq[tumor.seq == "-"] <- ""
+```
+
+
+Write this to a fasta file for processing
+```{r}
+write.fasta(ids = ids, seqs = tumor.seq, file = "subsequences.fa")
+```
+
