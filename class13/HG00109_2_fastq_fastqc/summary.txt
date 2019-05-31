@@ -1,0 +1,11 @@
+PASS	Basic Statistics	HG00109_2_fastq
+PASS	Per base sequence quality	HG00109_2_fastq
+FAIL	Per tile sequence quality	HG00109_2_fastq
+PASS	Per sequence quality scores	HG00109_2_fastq
+WARN	Per base sequence content	HG00109_2_fastq
+WARN	Per sequence GC content	HG00109_2_fastq
+PASS	Per base N content	HG00109_2_fastq
+WARN	Sequence Length Distribution	HG00109_2_fastq
+WARN	Sequence Duplication Levels	HG00109_2_fastq
+WARN	Overrepresented sequences	HG00109_2_fastq
+PASS	Adapter Content	HG00109_2_fastq
